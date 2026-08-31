@@ -4,15 +4,6 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
-    inputs:
-      build_type:
-        description: 'Build type (debug/release)'
-        required: false
-        default: 'release'
-        type: choice
-        options:
-          - debug
-          - release
 
 jobs:
   build:
@@ -30,72 +21,57 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Cache Godot export templates
-        id: cache-templates
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.local/share/godot/export_templates/
-            /root/.local/share/godot/export_templates/
-          key: godot4.2.2-stable-mono-android-template
-          restore-keys: |
-            godot4.2.2-stable-mono-android-template-
-
-      - name: Build Android APK
-        id: build
-        uses: barichello/godot-ci@v3.0.2
-        with:
-          version: 4.2.2
-          use_mono: true
-          godot_executable: godot-mono
-          export: "Android"
-          export_debug: false
-          packaging: false
-          include_addons: false
-          android_build_template: true
-          cache: ${{ steps.cache-templates.outputs.cache-hit != 'true' }}
+      - name: Setup Android SDK
         env:
           ANDROID_SDK_ROOT: /opt/android-sdk
-
-      - name: Verify APK
-        if: always()
         run: |
-          echo "Build result: ${{ steps.build.outcome }}"
-          ls -la build/ || echo "No build dir"
-          find . -name "*.apk" 2>/dev/null
+          echo "=== Install Android command-line tools ==="
+          wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O cmdline-tools.zip
+          unzip -q cmdline-tools.zip
+          mkdir -p $ANDROID_SDK_ROOT/cmdline-tools/latest
+          mv cmdline-tools/* $ANDROID_SDK_ROOT/cmdline-tools/latest/
+          export PATH=$PATH:$ANDROID_SDK_ROOT/cmdline-tools/latest/bin
+          yes | sdkmanager --licenses > /dev/null 2>&1 || true
+          sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0" 2>&1 | tail -3          
 
-      - name: Find APK
-        id: find_apk
-        if: success()
+      - name: Download Godot 4.2.2 Mono Editor
         run: |
-          APK_PATH=$(find . -name "*.apk" -type f | head -1)
-          if [ -z "$APK_PATH" ]; then
-            echo "❌ No APK found"
-            exit 1
-          fi
-          echo "apk_path=$APK_PATH" >> $GITHUB_OUTPUT
-          echo "Found APK: $APK_PATH"
+          echo "=== Download Godot Mono editor (~53MB) ==="
+          wget -q https://github.com/godotengine/godot-builds/releases/download/4.2.2-stable/Godot_v4.2.2-stable_mono_linux_x86_64.zip
+          unzip -q Godot_v4.2.2-stable_mono_linux_x86_64.zip
+          mv Godot_v4.2.2-stable_mono_linux.x86_64 /usr/local/bin/godot-mono
+          chmod +x /usr/local/bin/godot-mono
+          godot-mono --version          
 
-      - name: Setup Python
-        if: success()
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
+      - name: Setup Godot Android Export Templates
+        run: |
+          echo "=== Download Mono Android export templates (~820MB) ==="
+          wget -q https://github.com/godotengine/godot-builds/releases/download/4.2.2-stable/Godot_v4.2.2-stable_mono_export_templates.tpz
+          mkdir -p ~/.local/share/godot/export_templates/4.2.2.stable.mono/
+          unzip -q Godot_v4.2.2-stable_mono_export_templates.tpz -d /tmp/templates/
+          cp /tmp/templates/templates/android_* ~/.local/share/godot/export_templates/4.2.2.stable.mono/
+          ls -la ~/.local/share/godot/export_templates/4.2.2.stable.mono/          
 
-      - name: Install dependencies
-        if: success()
-        run: pip install requests
+      - name: Build Android APK
+        env:
+          ANDROID_SDK_ROOT: /opt/android-sdk
+        run: |
+          echo "=== Import project ==="
+          godot-mono --headless --import 2>&1 | tail -20
+          echo "=== Build APK ==="
+          mkdir -p build
+          godot-mono --headless --export-debug "Android" build/raft-demo.apk 2>&1 | tail -30
+          ls -la build/          
 
-      - name: Upload to Pgyer (蒲公英)
-        if: success()
+      - name: Upload to Pgyer
         env:
           PGYER_API_KEY: ${{ secrets.PGYER_API_KEY }}
         run: |
-          python tools/pgyer_upload.py \
-            --file "${{ steps.find_apk.outputs.apk_path }}" \
-            --api-key "$PGYER_API_KEY" \
-            --build-name "raft-demo-${{ github.sha }}" \
-            --build-desc "Commit: ${{ github.sha }} | Author: ${{ github.actor }} | Branch: ${{ github.ref_name }}"
+          APK_PATH=$(find . -name "*.apk" -type f | head -1)
+          if [ -z "$APK_PATH" ]; then echo "❌ No APK"; exit 1; fi
+          echo "✅ APK: $APK_PATH ($(du -h "$APK_PATH" | cut -f1))"
+          pip install --quiet requests
+          python tools/pgyer_upload.py --file "$APK_PATH" --api-key "$PGYER_API_KEY" --build-name "raft-demo-${{ github.sha }}" --build-desc "Commit: ${{ github.sha }}"          
 
       - name: Upload APK artifact
         if: always()
