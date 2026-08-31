@@ -1,0 +1,67 @@
+[gd_scene load_steps=12 format=3 uid="uid://braft000000001"]
+
+[ext_resource type="Script" path="res://scripts/RandomDriftController.cs" id="1_drift"]
+[ext_resource type="Script" path="res://scripts/Raft.cs" id="2_raft"]
+[ext_resource type="Script" path="res://scripts/Water.cs" id="3_water"]
+[ext_resource type="Script" path="res://scripts/Cloud.cs" id="4_cloud"]
+[ext_resource type="Script" path="res://scripts/Debris.cs" id="5_debris"]
+[ext_resource type="Texture2D" path="res://assets/sprites/water_deep.png" id="6_water_deep"]
+[ext_resource type="Texture2D" path="res://assets/sprites/water_wave.png" id="7_water_wave"]
+[ext_resource type="Texture2D" path="res://assets/sprites/raft.png" id="8_raft"]
+[ext_resource type="Texture2D" path="res://assets/sprites/player.png" id="9_player"]
+[ext_resource type="Texture2D" path="res://assets/sprites/cloud.png" id="10_cloud"]
+[ext_resource type="Texture2D" path="res://assets/sprites/debris.png" id="11_debris"]
+
+[node name="Main" type="Node2D"]
+
+[node name="Background" type="ColorRect" parent="."]
+offset_right = 1920.0
+offset_bottom = 540.0
+color = Color(0.5, 0.6, 0.7, 1)
+
+[node name="Cloud" type="Node2D" parent="."]
+script = ExtResource("4_cloud")
+
+[node name="Sprite2D" type="Sprite2D" parent="Cloud"]
+texture = ExtResource("10_cloud")
+centered = true
+
+[node name="RandomDriftController" type="Node2D" parent="."]
+script = ExtResource("1_drift")
+
+[node name="Water" type="Node2D" parent="."]
+script = ExtResource("3_water")
+
+[node name="DeepLayer" type="Sprite2D" parent="Water"]
+texture = ExtResource("6_water_deep")
+centered = false
+region_enabled = true
+region_rect = Rect2(0, 0, 1920, 540)
+position = Vector2(0, 540)
+
+[node name="WaveLayer" type="Sprite2D" parent="Water"]
+texture = ExtResource("7_water_wave")
+centered = false
+region_enabled = true
+region_rect = Rect2(0, 0, 1920, 200)
+position = Vector2(0, 540)
+modulate = Color(0.8, 0.9, 1, 0.6)
+
+[node name="Debris" type="Node2D" parent="."]
+script = ExtResource("5_debris")
+
+[node name="Sprite2D" type="Sprite2D" parent="Debris"]
+texture = ExtResource("11_debris")
+centered = true
+
+[node name="Raft" type="Node2D" parent="."]
+script = ExtResource("2_raft")
+
+[node name="RaftSprite" type="Sprite2D" parent="Raft"]
+texture = ExtResource("8_raft")
+centered = true
+
+[node name="Player" type="Sprite2D" parent="Raft"]
+texture = ExtResource("9_player")
+centered = true
+position = Vector2(0, -16)
