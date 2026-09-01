@@ -40,12 +40,25 @@ jobs:
 
       - name: Download Godot 4.2.2 Mono Editor
         run: |
+          set -e
           echo "=== Download Godot Mono editor (~53MB) ==="
           curl -fsSL --retry 3 --retry-delay 5 https://github.com/godotengine/godot-builds/releases/download/4.2.2-stable/Godot_v4.2.2-stable_mono_linux_x86_64.zip -o godot-mono.zip
-          unzip -q godot-mono.zip
-          mv Godot_v4.2.2-stable_mono_linux_x86_64 /usr/local/bin/godot-mono
+          echo "=== ZIP 内部文件列表（诊断用）==="
+          unzip -l godot-mono.zip
+          echo "=== 解压 ==="
+          unzip -q -o godot-mono.zip
+          echo "=== 解压后目录 ==="
+          find . -maxdepth 3 -name 'Godot*mono*linux*' \( -type f -o -type l \) 2>/dev/null
+          echo "=== 定位 Godot 二进制 ==="
+          BINARY=$(find . -maxdepth 3 \( -type f -o -type l \) -name 'Godot*mono*linux*' | head -1)
+          if [ -z "$BINARY" ]; then
+            echo "没找到 Godot mono linux 二进制"
+            exit 1
+          fi
+          echo "Found binary: $BINARY"
+          mv "$BINARY" /usr/local/bin/godot-mono
           chmod +x /usr/local/bin/godot-mono
-          godot-mono --version          
+          godot-mono --version        
 
       - name: Setup Godot Android Export Templates
         run: |
