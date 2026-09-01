@@ -20,6 +20,11 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '17'
+          
+      - name: Setup .NET 6.0 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '6.0.x'
 
       - name: Setup Android SDK
         env:
@@ -94,6 +99,17 @@ jobs:
           echo "Found APK: $APK_PATH ($(du -h "$APK_PATH" | cut -f1))"
           pip install --quiet requests
           python tools/pgyer_upload.py --file "$APK_PATH" --api-key "$PGYER_API_KEY" --build-name "raft-demo-${{ github.sha }}" --build-desc "Commit: ${{ github.sha }}" 
+
+      - name: Upload Godot build logs (诊断用)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: godot-build-logs
+          path: |
+            /tmp/import.log
+            /tmp/export.log
+          if-no-files-found: ignore
+          retention-days: 7
           
       - name: Upload APK artifact
         if: always()
