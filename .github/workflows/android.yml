@@ -73,13 +73,18 @@ jobs:
         env:
           ANDROID_SDK_ROOT: $HOME/android-sdk
         run: |
+          set -e
           echo "=== Import project (first-time setup, ~30s) ==="
-          godot-mono --headless --import 2>&1 | tail -20
+          godot-mono --headless --import 2>&1 | tee /tmp/import.log | tail -20
+          echo "godot import exit=${PIPESTATUS[0]}"
           echo "=== Build APK ==="
           mkdir -p build
-          godot-mono --headless --export-debug "Android" build/raft-demo.apk 2>&1 | tail -30
-          ls -la build/          
-
+          godot-mono --headless --export-debug "Android" build/raft-demo.apk 2>&1 | tee /tmp/export.log | tail -30
+          echo "godot export exit=${PIPESTATUS[0]}"
+          echo "=== build/ 目录内容 ==="
+          ls -la build/
+          if [ ! -f build/*.apk ]; then echo "APK 未生成"; exit 1; fi
+          
       - name: Upload to Pgyer (蒲公英)
         env:
           PGYER_API_KEY: ${{ secrets.PGYER_API_KEY }}
@@ -88,13 +93,13 @@ jobs:
           if [ -z "$APK_PATH" ]; then echo "No APK"; exit 1; fi
           echo "Found APK: $APK_PATH ($(du -h "$APK_PATH" | cut -f1))"
           pip install --quiet requests
-          python tools/pgyer_upload.py --file "$APK_PATH" --api-key "$PGYER_API_KEY" --build-name "raft-demo-${{ github.sha }}" --build-desc "Commit: ${{ github.sha }}"          
-
+          python tools/pgyer_upload.py --file "$APK_PATH" --api-key "$PGYER_API_KEY" --build-name "raft-demo-${{ github.sha }}" --build-desc "Commit: ${{ github.sha }}" 
+          
       - name: Upload APK artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: raft-demo-apk
           path: build/*.apk
-          if-no-files-found: ignore
+          if-no-files-found: error
           retention-days: 30
