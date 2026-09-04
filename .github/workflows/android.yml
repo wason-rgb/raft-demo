@@ -20,7 +20,7 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '17'
-          
+
       - name: Setup .NET 6.0 SDK
         uses: actions/setup-dotnet@v4
         with:
@@ -46,24 +46,17 @@ jobs:
       - name: Download Godot 4.2.2 Mono Editor
         run: |
           set -e
-          echo "=== Download Godot Mono editor (~53MB) ==="
+          echo "=== Download Godot Mono editor (~100MB) ==="
           curl -fsSL --retry 3 --retry-delay 5 https://github.com/godotengine/godot-builds/releases/download/4.2.2-stable/Godot_v4.2.2-stable_mono_linux_x86_64.zip -o godot-mono.zip
-          echo "=== ZIP 内部文件列表（诊断用）==="
-          unzip -l godot-mono.zip
-          echo "=== 解压 ==="
-          unzip -q -o godot-mono.zip
-          echo "=== 解压后目录 ==="
-          find . -maxdepth 3 -name 'Godot*mono*linux*' \( -type f -o -type l \) 2>/dev/null
-          echo "=== 定位 Godot 二进制 ==="
-          BINARY=$(find . -maxdepth 3 \( -type f -o -type l \) -name 'Godot*mono*linux*' | head -1)
-          if [ -z "$BINARY" ]; then
-            echo "没找到 Godot mono linux 二进制"
-            exit 1
-          fi
-          echo "Found binary: $BINARY"
-          mv "$BINARY" /usr/local/bin/godot-mono
-          chmod +x /usr/local/bin/godot-mono
-          godot-mono --version        
+          echo "=== 解压到 /opt/godot（保留 GodotSharp/ 目录与二进制同在）==="
+          unzip -q -o godot-mono.zip -d /opt
+          ls -la /opt/Godot_v4.2.2-stable_mono_linux_x86_64/
+          ls -la /opt/Godot_v4.2.2-stable_mono_linux_x86_64/GodotSharp/Api/Debug/ 2>&1 | head -5
+          echo "=== 软链二进制到 PATH ==="
+          ln -sf /opt/Godot_v4.2.2-stable_mono_linux_x86_64/Godot_v4.2.2-stable_mono_linux.x86_64 /usr/local/bin/godot-mono
+          chmod +x /opt/Godot_v4.2.2-stable_mono_linux_x86_64/Godot_v4.2.2-stable_mono_linux.x86_64
+          godot-mono --version
+          rm -f godot-mono.zip          
 
       - name: Setup Godot Android Export Templates
         run: |
@@ -88,8 +81,8 @@ jobs:
           echo "godot export exit=${PIPESTATUS[0]}"
           echo "=== build/ 目录内容 ==="
           ls -la build/
-          if [ ! -f build/*.apk ]; then echo "APK 未生成"; exit 1; fi
-          
+          if [ ! -f build/*.apk ]; then echo "APK 未生成"; exit 1; fi          
+
       - name: Upload to Pgyer (蒲公英)
         env:
           PGYER_API_KEY: ${{ secrets.PGYER_API_KEY }}
@@ -98,7 +91,7 @@ jobs:
           if [ -z "$APK_PATH" ]; then echo "No APK"; exit 1; fi
           echo "Found APK: $APK_PATH ($(du -h "$APK_PATH" | cut -f1))"
           pip install --quiet requests
-          python tools/pgyer_upload.py --file "$APK_PATH" --api-key "$PGYER_API_KEY" --build-name "raft-demo-${{ github.sha }}" --build-desc "Commit: ${{ github.sha }}" 
+          python tools/pgyer_upload.py --file "$APK_PATH" --api-key "$PGYER_API_KEY" --build-name "raft-demo-${{ github.sha }}" --build-desc "Commit: ${{ github.sha }}"          
 
       - name: Upload Godot build logs (诊断用)
         if: always()
@@ -107,10 +100,10 @@ jobs:
           name: godot-build-logs
           path: |
             /tmp/import.log
-            /tmp/export.log
+            /tmp/export.log            
           if-no-files-found: ignore
           retention-days: 7
-          
+
       - name: Upload APK artifact
         if: always()
         uses: actions/upload-artifact@v4
