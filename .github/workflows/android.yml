@@ -122,27 +122,28 @@ jobs:
       - name: Generate Android debug keystore
         env:
           JAVA_HOME: ${{ env.JAVA_HOME }}
+          GODOT_ANDROID_KEYSTORE_DEBUG_PATH: ${{ runner.workspace }}/.config/godot/debug.keystore
+          GODOT_ANDROID_KEYSTORE_DEBUG_USER: androiddebugkey
+          GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
         run: |
           set -e
           echo "=== 生成 debug keystore ==="
-          mkdir -p ~/.config/godot
-          if [ ! -f ~/.config/godot/debug.keystore ]; then
-            $JAVA_HOME/bin/keytool -genkey -v -keystore ~/.config/godot/debug.keystore \
-                    -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 \
-                    -storepass android -keypass android \
+          mkdir -p $(dirname "$GODOT_ANDROID_KEYSTORE_DEBUG_PATH")
+          if [ ! -f "$GODOT_ANDROID_KEYSTORE_DEBUG_PATH" ]; then
+            $JAVA_HOME/bin/keytool -genkey -v -keystore "$GODOT_ANDROID_KEYSTORE_DEBUG_PATH" \
+                    -alias "$GODOT_ANDROID_KEYSTORE_DEBUG_USER" -keyalg RSA -keysize 2048 -validity 10000 \
+                    -storepass "$GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD" -keypass "$GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD" \
                     -dname "CN=Android Debug,O=Android,C=US"
           fi
-          if [ ! -f ~/.config/godot/debug.keystore ]; then
+          if [ ! -f "$GODOT_ANDROID_KEYSTORE_DEBUG_PATH" ]; then
             echo "FAIL keystore 生成失败"
             exit 1
           fi
           echo "OK keystore 已就位"
-          ls -la ~/.config/godot/debug.keystore
-          echo "GODOT_ANDROID_KEYSTORE_DEBUG_PATH=$HOME/.config/godot/debug.keystore" >> "$GITHUB_ENV"
-          echo "GODOT_ANDROID_KEYSTORE_DEBUG_USER=androiddebugkey"                 >> "$GITHUB_ENV"
-          echo "GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD=android"                     >> "$GITHUB_ENV"
-          echo "--- env 已注入 ---"
-          env | grep GODOT_ANDROID
+          ls -la "$GODOT_ANDROID_KEYSTORE_DEBUG_PATH"
+          echo "GODOT_ANDROID_KEYSTORE_DEBUG_PATH=$GODOT_ANDROID_KEYSTORE_DEBUG_PATH"
+          echo "GODOT_ANDROID_KEYSTORE_DEBUG_USER=$GODOT_ANDROID_KEYSTORE_DEBUG_USER"
+          echo "GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD=$GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD"
 
       - name: Build Android APK
         env:
