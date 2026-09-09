@@ -27,47 +27,53 @@ jobs:
 
       - name: Install Android command-line tools
         env:
-          ANDROID_SDK_ROOT: $HOME/android-sdk
+          ANDROID_SDK_ROOT: ${{ runner.workspace }}/android-sdk
         run: |
           set -e
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
+          echo "HOME=$HOME"
           echo "=== 下载 cmdline-tools ==="
           curl -fsSL --retry 3 --retry-delay 5 https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -o cmdline-tools.zip
           unzip -q cmdline-tools.zip
           mkdir -p $ANDROID_SDK_ROOT/cmdline-tools/latest
           mv cmdline-tools/* $ANDROID_SDK_ROOT/cmdline-tools/latest/
-          ls -la $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/ | head -5
-          echo "=== cmdline-tools 装好 ==="          
+          ls -la $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/ | head -10
+          echo "=== cmdline-tools 装好 ==="
 
       - name: Accept Android SDK licenses
         env:
-          ANDROID_SDK_ROOT: $HOME/android-sdk
+          ANDROID_SDK_ROOT: ${{ runner.workspace }}/android-sdk
+          JAVA_HOME: ${{ env.JAVA_HOME }}
         run: |
           set -e
           export PATH=$PATH:$ANDROID_SDK_ROOT/cmdline-tools/latest/bin
-          echo "=== 接受 SDK licenses（保留输出便于诊断）==="
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
+          which java
+          java -version
+          echo "=== 接受 SDK licenses ==="
           yes | sdkmanager --licenses
-          echo "=== licenses 接受完成 ==="          
+          echo "=== licenses 接受完成 ==="
 
       - name: Install Android SDK platform + build-tools (no NDK)
         env:
-          ANDROID_SDK_ROOT: $HOME/android-sdk
+          ANDROID_SDK_ROOT: ${{ runner.workspace }}/android-sdk
         run: |
           set -e
           export PATH=$PATH:$ANDROID_SDK_ROOT/cmdline-tools/latest/bin
           echo "=== 装 platform-tools + platforms;android-34 + build-tools;34.0.0 ==="
           sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
-          echo "=== 小包装完 ==="          
+          echo "=== 小包装完 ==="
 
       - name: Install Android NDK 26.1.10909125
         env:
-          ANDROID_SDK_ROOT: $HOME/android-sdk
+          ANDROID_SDK_ROOT: ${{ runner.workspace }}/android-sdk
         run: |
           set -e
           export PATH=$PATH:$ANDROID_SDK_ROOT/cmdline-tools/latest/bin
-          echo "=== 装 NDK 26.1.10909125（1GB+ 下载约 1-2 分钟）==="
+          echo "=== 装 NDK 26.1.10909125（约 1GB，1-2 分钟）==="
           sdkmanager "ndk;26.1.10909125"
           echo "=== NDK 装完 ==="
-          ls -la $ANDROID_SDK_ROOT/ndk/26.1.10909125/ | head -5          
+          ls $ANDROID_SDK_ROOT/ndk/26.1.10909125/source.properties 2>&1 | head -3
 
       - name: Download Godot 4.2.2 Mono Editor
         run: |
@@ -79,7 +85,7 @@ jobs:
           ln -sf /opt/Godot_v4.2.2-stable_mono_linux_x86_64/Godot_v4.2.2-stable_mono_linux.x86_64 /usr/local/bin/godot-mono
           chmod +x /opt/Godot_v4.2.2-stable_mono_linux_x86_64/Godot_v4.2.2-stable_mono_linux.x86_64
           godot-mono --version
-          rm -f godot-mono.zip          
+          rm -f godot-mono.zip
 
       - name: Setup Godot Android Export Templates
         run: |
@@ -89,7 +95,7 @@ jobs:
           mkdir -p ~/.local/share/godot/export_templates/4.2.2.stable.mono/
           unzip -q templates.tpz -d /tmp/templates/
           cp /tmp/templates/templates/android_* ~/.local/share/godot/export_templates/4.2.2.stable.mono/
-          ls -la ~/.local/share/godot/export_templates/4.2.2.stable.mono/          
+          ls -la ~/.local/share/godot/export_templates/4.2.2.stable.mono/
 
       - name: Install Android Build Template
         run: |
@@ -113,9 +119,11 @@ jobs:
           else
             echo "=== android/build 已存在，跳过 ==="
             ls -la android/build/ | head -10
-          fi          
+          fi
 
       - name: Generate Android debug keystore
+        env:
+          JAVA_HOME: ${{ env.JAVA_HOME }}
         run: |
           set -e
           echo "=== 生成 debug keystore ==="
@@ -136,11 +144,12 @@ jobs:
           echo "GODOT_ANDROID_KEYSTORE_DEBUG_USER=androiddebugkey"                 >> "$GITHUB_ENV"
           echo "GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD=android"                     >> "$GITHUB_ENV"
           echo "--- env 已注入 ---"
-          env | grep GODOT_ANDROID          
+          env | grep GODOT_ANDROID
 
       - name: Build Android APK
         env:
-          ANDROID_SDK_ROOT: $HOME/android-sdk
+          ANDROID_SDK_ROOT: ${{ runner.workspace }}/android-sdk
+          JAVA_HOME: ${{ env.JAVA_HOME }}
         run: |
           set -e
           echo "=== Import project (first-time setup, ~30s) ==="
@@ -159,7 +168,7 @@ jobs:
             echo "FAIL APK 未生成"
             exit 1
           fi
-          echo "OK APK 已生成"          
+          echo "OK APK 已生成"
 
       - name: Upload to Pgyer (蒲公英)
         env:
@@ -170,7 +179,7 @@ jobs:
           if [ -z "$APK_PATH" ]; then echo "No APK"; exit 1; fi
           echo "Found APK: $APK_PATH ($(du -h "$APK_PATH" | cut -f1))"
           pip install --quiet requests
-          python tools/pgyer_upload.py --file "$APK_PATH" --api-key "$PGYER_API_KEY" --build-name "raft-demo-${{ github.sha }}" --build-desc "Commit: ${{ github.sha }}"          
+          python tools/pgyer_upload.py --file "$APK_PATH" --api-key "$PGYER_API_KEY" --build-name "raft-demo-${{ github.sha }}" --build-desc "Commit: ${{ github.sha }}"
 
       - name: Upload Godot build logs (诊断用)
         if: always()
@@ -179,7 +188,7 @@ jobs:
           name: godot-build-logs
           path: |
             /tmp/import.log
-            /tmp/export.log            
+            /tmp/export.log
           if-no-files-found: ignore
           retention-days: 7
 
