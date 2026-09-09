@@ -130,6 +130,38 @@ jobs:
           find android/build/res -name "*.import" -type f | wc -l
           echo "--- res 顶层 ---"
           ls android/build/res/ | head -10
+          # 关键 2：给 build.gradle 的 mergeDebugResources 任务加 doFirst 钩子，
+          # 在 Gradle 跑资源合并前再次清理 .import 文件（Godot export 内部的 reimport 会重新生成）
+          echo "=== 注入 mergeDebugResources 清理钩子到 build.gradle ==="
+          python3 - <<'PYEOF'
+import pathlib
+p = pathlib.Path('android/build/build.gradle')
+src = p.read_text()
+hook = '''
+// === injected by CI: strip .import metadata before mergeDebugResources ===
+gradle.projectsEvaluated {
+    tasks.matching {
+        it.name == 'mergeDebugResources' || it.name == 'mergeReleaseResources' ||
+        it.name == 'mergeDebugAssets' || it.name == 'mergeReleaseAssets'
+    }.configureEach {
+        doFirst {
+            // Delete Godot export's .import metadata files from res/ tree
+            def patterns = ['**/*.import']
+            fileTree('res', ['include': patterns]).each { it.delete() }
+            fileTree('src/main/res', ['include': patterns]).each { it.delete() }
+            fileTree('assets', ['include': patterns]).each { it.delete() }
+            fileTree('src/main/assets', ['include': patterns]).each { it.delete() }
+            println "[CI-hook] cleaned .import files from res/ assets/"
+        }
+    }
+}
+'''
+if 'injected by CI: strip .import' not in src:
+    p.write_text(src + hook)
+    print('hook injected')
+else:
+    print('hook already present, skipped')
+PYEOF
 
       - name: Generate Android debug keystore
         env:
