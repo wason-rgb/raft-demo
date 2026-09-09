@@ -124,6 +124,12 @@ jobs:
           echo "4.2.2.stable.mono" > android/.build_version
           cat android/.build_version
           ls -la android/ | head -10
+          # 关键：删掉 android/build/res/ 下的 .import 元数据文件，Android 资源合并器拒绝它们
+          echo "=== 清理 res/ 下的 Godot .import 文件 ==="
+          find android/build/res -name "*.import" -type f -delete
+          find android/build/res -name "*.import" -type f | wc -l
+          echo "--- res 顶层 ---"
+          ls android/build/res/ | head -10
 
       - name: Generate Android debug keystore
         env:
@@ -196,6 +202,11 @@ jobs:
           echo "godot import exit=${PIPESTATUS[0]}"
           echo "--- import.log 末尾 20 行 ---"
           tail -20 /tmp/import.log
+          # 关键：import 完成后、export 之前，清除 res/ 下的 .import 元数据文件
+          # 否则 Android 资源合并器会拒绝 .png.import 这种文件
+          echo "=== 清理 res/ 下的 Godot .import 文件 ==="
+          find android/build/res -name "*.import" -type f -delete 2>/dev/null || true
+          find android/build/res -name "*.import" -type f | wc -l || true
           echo "=== Build APK ==="
           mkdir -p build
           godot-mono --headless --export-debug "Android" build/raft-demo.apk 2>&1 | tee /tmp/export.log
