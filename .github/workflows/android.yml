@@ -118,6 +118,10 @@ jobs:
             echo "=== android/build/build.gradle 已存在，跳过 ==="
             ls -la android/build/ | head -15
           fi
+          # Godot 4.2 校验 android/build/.build_version 内容 = VERSION_FULL_CONFIG = "4.2.2.stable.mono"
+          echo "=== 写 android/build/.build_version ==="
+          echo "4.2.2.stable.mono" > android/build/.build_version
+          cat android/build/.build_version
 
       - name: Generate Android debug keystore
         env:
