@@ -151,6 +151,29 @@ jobs:
           echo "GODOT_ANDROID_KEYSTORE_DEBUG_USER=$GODOT_ANDROID_KEYSTORE_DEBUG_USER"
           echo "GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD=$GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD"
 
+      - name: Configure Godot editor settings for Android
+        env:
+          JAVA_HOME: ${{ env.JAVA_HOME }}
+          GODOT_ANDROID_KEYSTORE_DEBUG_PATH: ${{ runner.workspace }}/.config/godot/debug.keystore
+          GODOT_ANDROID_KEYSTORE_DEBUG_USER: androiddebugkey
+          GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
+        run: |
+          set -e
+          # 关键：headless export 时 EditorSettings 不会被自动初始化，
+          # 必须手写 ~/.config/godot/editor_settings-4.tres 让 Godot 找到 SDK/JDK/keystore 路径
+          SETTINGS_DIR="$HOME/.config/godot"
+          mkdir -p "$SETTINGS_DIR"
+          printf '[gd_resource type="EditorSettings" format=3]\n\n[resource]\nexport/android/android_sdk_path = "%s"\nexport/android/java_sdk_path = "%s"\nexport/android/debug_keystore = "%s"\nexport/android/debug_keystore_user = "%s"\nexport/android/debug_keystore_pass = "%s"\n' \
+            "${{ runner.workspace }}/android-sdk" \
+            "$JAVA_HOME" \
+            "$GODOT_ANDROID_KEYSTORE_DEBUG_PATH" \
+            "$GODOT_ANDROID_KEYSTORE_DEBUG_USER" \
+            "$GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD" \
+            > "$SETTINGS_DIR/editor_settings-4.tres"
+          cp "$SETTINGS_DIR/editor_settings-4.tres" "$SETTINGS_DIR/editor_settings-4.5.tres"
+          echo "=== Written editor settings ==="
+          cat "$SETTINGS_DIR/editor_settings-4.tres"
+
       - name: Build Android APK
         env:
           ANDROID_SDK_ROOT: ${{ runner.workspace }}/android-sdk
@@ -160,6 +183,14 @@ jobs:
           GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
         run: |
           set -e
+          # 关键：GitHub Hosted Runner 默认设 ANDROID_HOME=/usr/local/lib/android/sdk（不存在的路径）。
+          # Gradle 不允许 ANDROID_HOME 和 ANDROID_SDK_ROOT 同时存在指向不同路径，
+          # 先 unset ANDROID_HOME，让 Godot export 时通过 EditorSettings 重新 set_environment("ANDROID_HOME", sdk_path)
+          unset ANDROID_HOME
+          export ANDROID_SDK_ROOT
+          echo "ANDROID_HOME=${ANDROID_HOME:-<unset>}"
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
+          ls "$ANDROID_SDK_ROOT" | head -5
           echo "=== Import project (first-time setup, ~30s) ==="
           godot-mono --headless --import 2>&1 | tee /tmp/import.log
           echo "godot import exit=${PIPESTATUS[0]}"
