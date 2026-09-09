@@ -149,6 +149,9 @@ jobs:
         env:
           ANDROID_SDK_ROOT: ${{ runner.workspace }}/android-sdk
           JAVA_HOME: ${{ env.JAVA_HOME }}
+          GODOT_ANDROID_KEYSTORE_DEBUG_PATH: ${{ runner.workspace }}/.config/godot/debug.keystore
+          GODOT_ANDROID_KEYSTORE_DEBUG_USER: androiddebugkey
+          GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
         run: |
           set -e
           echo "=== Import project (first-time setup, ~30s) ==="
