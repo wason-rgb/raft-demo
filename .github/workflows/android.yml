@@ -40,7 +40,7 @@ jobs:
           yes | sdkmanager --licenses > /dev/null 2>&1 || true
 
           echo "=== Install platform-tools + platforms;android-34 + build-tools;34.0.0 + ndk;26.1.10909125 ==="
-          sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0" "ndk;26.1.10909125" 2>&1 | tail -3
+          sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0" "ndk;26.1.10909125"
           #                                                    ↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑
           # 修复 1: Godot 4.2.2 Mono Android export 必须 NDK 编译 native lib（arm64-v8a）
           # 官方测试用 26.1.10909125          
@@ -94,10 +94,7 @@ jobs:
           mkdir -p ~/.config/godot
           if [ ! -f ~/.config/godot/debug.keystore ]; then
             echo "=== 生成 debug keystore ==="
-            keytool -genkey -v -keystore ~/.config/godot/debug.keystore \
-                    -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 \
-                    -storepass android -keypass android \
-                    -dname "CN=Android Debug,O=Android,C=US" 2>&1 | tail -3
+           $JAVA_HOME/bin/keytool -genkey -v -keystore ... 2>&1
           fi
           if [ ! -f ~/.config/godot/debug.keystore ]; then
             echo "✗ keystore 生成失败！"
