@@ -25,31 +25,57 @@ jobs:
         with:
           dotnet-version: '6.0.x'
 
-      - name: Install Android command-line tools and SDK
+      - name: Install Android command-line tools
         env:
           ANDROID_SDK_ROOT: $HOME/android-sdk
         run: |
-          echo "=== Install Android command-line tools ==="
+          set -e
+          echo "=== 下载 cmdline-tools ==="
           curl -fsSL --retry 3 --retry-delay 5 https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -o cmdline-tools.zip
           unzip -q cmdline-tools.zip
           mkdir -p $ANDROID_SDK_ROOT/cmdline-tools/latest
           mv cmdline-tools/* $ANDROID_SDK_ROOT/cmdline-tools/latest/
+          ls -la $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/ | head -5
+          echo "=== cmdline-tools 装好 ==="          
 
-          echo "=== Accept SDK licenses ==="
+      - name: Accept Android SDK licenses
+        env:
+          ANDROID_SDK_ROOT: $HOME/android-sdk
+        run: |
+          set -e
           export PATH=$PATH:$ANDROID_SDK_ROOT/cmdline-tools/latest/bin
-          yes | sdkmanager --licenses > /dev/null 2>&1 || true
+          echo "=== 接受 SDK licenses（保留输出便于诊断）==="
+          yes | sdkmanager --licenses
+          echo "=== licenses 接受完成 ==="          
 
-          echo "=== Install platform-tools + platforms;android-34 + build-tools;34.0.0 + ndk;26.1.10909125 ==="
-          sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0" "ndk;26.1.10909125"
-          #                                                    ↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑
-          # 修复 1: Godot 4.2.2 Mono Android export 必须 NDK 编译 native lib（arm64-v8a）
-          # 官方测试用 26.1.10909125          
+      - name: Install Android SDK platform + build-tools (no NDK)
+        env:
+          ANDROID_SDK_ROOT: $HOME/android-sdk
+        run: |
+          set -e
+          export PATH=$PATH:$ANDROID_SDK_ROOT/cmdline-tools/latest/bin
+          echo "=== 装 platform-tools + platforms;android-34 + build-tools;34.0.0 ==="
+          sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+          echo "=== 小包装完 ==="          
+
+      - name: Install Android NDK 26.1.10909125
+        env:
+          ANDROID_SDK_ROOT: $HOME/android-sdk
+        run: |
+          set -e
+          export PATH=$PATH:$ANDROID_SDK_ROOT/cmdline-tools/latest/bin
+          echo "=== 装 NDK 26.1.10909125（1GB+ 下载约 1-2 分钟）==="
+          sdkmanager "ndk;26.1.10909125"
+          echo "=== NDK 装完 ==="
+          ls -la $ANDROID_SDK_ROOT/ndk/26.1.10909125/ | head -5          
 
       - name: Download Godot 4.2.2 Mono Editor
         run: |
+          set -e
+          echo "=== 下 Godot 4.2.2 Mono Editor ==="
           curl -fsSL --retry 3 https://github.com/godotengine/godot-builds/releases/download/4.2.2-stable/Godot_v4.2.2-stable_mono_linux_x86_64.zip -o godot-mono.zip
           unzip -q -o godot-mono.zip -d /opt
-          ls -la /opt/Godot_v4.2.2-stable_mono_linux_x86_64/
+          ls -la /opt/Godot_v4.2.2-stable_mono_linux_x86_64/ | head -5
           ln -sf /opt/Godot_v4.2.2-stable_mono_linux_x86_64/Godot_v4.2.2-stable_mono_linux.x86_64 /usr/local/bin/godot-mono
           chmod +x /opt/Godot_v4.2.2-stable_mono_linux_x86_64/Godot_v4.2.2-stable_mono_linux.x86_64
           godot-mono --version
@@ -57,6 +83,8 @@ jobs:
 
       - name: Setup Godot Android Export Templates
         run: |
+          set -e
+          echo "=== 下 Godot 4.2.2 mono export templates ==="
           curl -fsSL --retry 3 --retry-delay 10 https://github.com/godotengine/godot-builds/releases/download/4.2.2-stable/Godot_v4.2.2-stable_mono_export_templates.tpz -o templates.tpz
           mkdir -p ~/.local/share/godot/export_templates/4.2.2.stable.mono/
           unzip -q templates.tpz -d /tmp/templates/
@@ -65,23 +93,22 @@ jobs:
 
       - name: Install Android Build Template
         run: |
-          # 修复 2: 原判断 `if [ ! -f android/build/build.gradle ]` 在解压前就检查单个文件路径，
-          # 即使 android_source.zip 解到 android/build/ 下面，build.gradle 路径实际是
-          # android/build/build/build.gradle（zip 内部是 build/ 目录 + 一堆子文件）
-          # 改为判断 `android/build` 目录是否存在
+          set -e
+          echo "=== 检查 android/build/ 目录 ==="
           if [ ! -d android/build ]; then
-            echo "=== Installing Android Build Template from export_templates ==="
+            echo "=== 解压 android_source.zip 到 android/ ==="
             mkdir -p android
             unzip -q ~/.local/share/godot/export_templates/4.2.2.stable.mono/android_source.zip -d android/
-            echo "--- 解压后 android/ 内容 ---"
+            echo "--- android/ 顶层 ---"
             ls -la android/ | head -10
-            echo "--- 解压后 android/build/ 内容 ---"
+            echo "--- android/build/ 顶层 ---"
             ls -la android/build/ 2>/dev/null | head -10
             if [ -f android/build/build.gradle ]; then
-              echo "✓ build.gradle 已就位"
+              echo "OK android/build/build.gradle 已就位"
             else
-              echo "✗ build.gradle 缺失！模板可能没装上，export 阶段会失败"
+              echo "FAIL build.gradle 缺失！"
               find android/ -name "build.gradle" 2>/dev/null
+              exit 1
             fi
           else
             echo "=== android/build 已存在，跳过 ==="
@@ -90,17 +117,20 @@ jobs:
 
       - name: Generate Android debug keystore
         run: |
-          # 修复 3: 加 verify。原版如果 keytool 静默失败（exit 0 但没生成文件），后续 env 拿到空路径
+          set -e
+          echo "=== 生成 debug keystore ==="
           mkdir -p ~/.config/godot
           if [ ! -f ~/.config/godot/debug.keystore ]; then
-            echo "=== 生成 debug keystore ==="
-           $JAVA_HOME/bin/keytool -genkey -v -keystore ... 2>&1
+            $JAVA_HOME/bin/keytool -genkey -v -keystore ~/.config/godot/debug.keystore \
+                    -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 \
+                    -storepass android -keypass android \
+                    -dname "CN=Android Debug,O=Android,C=US"
           fi
           if [ ! -f ~/.config/godot/debug.keystore ]; then
-            echo "✗ keystore 生成失败！"
+            echo "FAIL keystore 生成失败"
             exit 1
           fi
-          echo "✓ keystore 已就位"
+          echo "OK keystore 已就位"
           ls -la ~/.config/godot/debug.keystore
           echo "GODOT_ANDROID_KEYSTORE_DEBUG_PATH=$HOME/.config/godot/debug.keystore" >> "$GITHUB_ENV"
           echo "GODOT_ANDROID_KEYSTORE_DEBUG_USER=androiddebugkey"                 >> "$GITHUB_ENV"
@@ -112,9 +142,7 @@ jobs:
         env:
           ANDROID_SDK_ROOT: $HOME/android-sdk
         run: |
-          # 修复 4: 不再用 `tee | tail` 截断日志 — 让 artifacts 能拿到完整 log
-          # godot export 输出可能很大（gradle 阶段几十 MB），但 nightly.link 能下载全部
-          set -o pipefail
+          set -e
           echo "=== Import project (first-time setup, ~30s) ==="
           godot-mono --headless --import 2>&1 | tee /tmp/import.log
           echo "godot import exit=${PIPESTATUS[0]}"
@@ -126,18 +154,18 @@ jobs:
           echo "godot export exit=${PIPESTATUS[0]}"
           echo "--- export.log 末尾 40 行 ---"
           tail -40 /tmp/export.log
-          echo "=== build/ 目录内容 ==="
           ls -la build/
           if [ ! -f build/*.apk ]; then
-            echo "✗ APK 未生成"
+            echo "FAIL APK 未生成"
             exit 1
           fi
-          echo "✓ APK 已生成: $(ls -la build/*.apk)"          
+          echo "OK APK 已生成"          
 
       - name: Upload to Pgyer (蒲公英)
         env:
           PGYER_API_KEY: ${{ secrets.PGYER_API_KEY }}
         run: |
+          set -e
           APK_PATH=$(find . -name "*.apk" -type f | head -1)
           if [ -z "$APK_PATH" ]; then echo "No APK"; exit 1; fi
           echo "Found APK: $APK_PATH ($(du -h "$APK_PATH" | cut -f1))"
