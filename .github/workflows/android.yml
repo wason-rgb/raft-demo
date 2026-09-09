@@ -132,36 +132,9 @@ jobs:
           ls android/build/res/ | head -10
           # 关键 2：给 build.gradle 的 mergeDebugResources 任务加 doFirst 钩子，
           # 在 Gradle 跑资源合并前再次清理 .import 文件（Godot export 内部的 reimport 会重新生成）
+          # 注意：python 脚本用 base64 编码避免 YAML 把 << 当 merge key
           echo "=== 注入 mergeDebugResources 清理钩子到 build.gradle ==="
-          python3 - <<'PYEOF'
-import pathlib
-p = pathlib.Path('android/build/build.gradle')
-src = p.read_text()
-hook = '''
-// === injected by CI: strip .import metadata before mergeDebugResources ===
-gradle.projectsEvaluated {
-    tasks.matching {
-        it.name == 'mergeDebugResources' || it.name == 'mergeReleaseResources' ||
-        it.name == 'mergeDebugAssets' || it.name == 'mergeReleaseAssets'
-    }.configureEach {
-        doFirst {
-            // Delete Godot export's .import metadata files from res/ tree
-            def patterns = ['**/*.import']
-            fileTree('res', ['include': patterns]).each { it.delete() }
-            fileTree('src/main/res', ['include': patterns]).each { it.delete() }
-            fileTree('assets', ['include': patterns]).each { it.delete() }
-            fileTree('src/main/assets', ['include': patterns]).each { it.delete() }
-            println "[CI-hook] cleaned .import files from res/ assets/"
-        }
-    }
-}
-'''
-if 'injected by CI: strip .import' not in src:
-    p.write_text(src + hook)
-    print('hook injected')
-else:
-    print('hook already present, skipped')
-PYEOF
+          echo "CmltcG9ydCBwYXRobGliCnAgPSBwYXRobGliLlBhdGgoJ2FuZHJvaWQvYnVpbGQvYnVpbGQuZ3JhZGxlJykKc3JjID0gcC5yZWFkX3RleHQoKQpob29rX2xpbmVzID0gWwogICAgJycsCiAgICAnLy8gPT09IGluamVjdGVkIGJ5IENJOiBzdHJpcCAuaW1wb3J0IG1ldGFkYXRhIGJlZm9yZSBtZXJnZURlYnVnUmVzb3VyY2VzID09PScsCiAgICAnZ3JhZGxlLnByb2plY3RzRXZhbHVhdGVkIHsnLAogICAgJyAgICB0YXNrcy5tYXRjaGluZyB7JywKICAgICIgICAgICAgIGl0Lm5hbWUgPT0gJ21lcmdlRGVidWdSZXNvdXJjZXMnIHx8IGl0Lm5hbWUgPT0gJ21lcmdlUmVsZWFzZVJlc291cmNlcycgfHwiLAogICAgIiAgICAgICAgaXQubmFtZSA9PSAnbWVyZ2VEZWJ1Z0Fzc2V0cycgfHwgaXQubmFtZSA9PSAnbWVyZ2VSZWxlYXNlQXNzZXRzJyIsCiAgICAnICAgIH0uY29uZmlndXJlRWFjaCB7JywKICAgICcgICAgICAgIGRvRmlyc3QgeycsCiAgICAiICAgICAgICAgICAgZGVmIHBhdHRlcm5zID0gWycqKi8qLmltcG9ydCddIiwKICAgICIgICAgICAgICAgICBmaWxlVHJlZSgncmVzJywgWydpbmNsdWRlJzogcGF0dGVybnNdKS5lYWNoIHsgaXQuZGVsZXRlKCkgfSIsCiAgICAiICAgICAgICAgICAgZmlsZVRyZWUoJ3NyYy9tYWluL3JlcycsIFsnaW5jbHVkZSc6IHBhdHRlcm5zXSkuZWFjaCB7IGl0LmRlbGV0ZSgpIH0iLAogICAgIiAgICAgICAgICAgIGZpbGVUcmVlKCdhc3NldHMnLCBbJ2luY2x1ZGUnOiBwYXR0ZXJuc10pLmVhY2ggeyBpdC5kZWxldGUoKSB9IiwKICAgICIgICAgICAgICAgICBmaWxlVHJlZSgnc3JjL21haW4vYXNzZXRzJywgWydpbmNsdWRlJzogcGF0dGVybnNdKS5lYWNoIHsgaXQuZGVsZXRlKCkgfSIsCiAgICAnICAgICAgICAgICAgcHJpbnRsbiAiW0NJLWhvb2tdIGNsZWFuZWQgLmltcG9ydCBmaWxlcyInLAogICAgJyAgICAgICAgfScsCiAgICAnICAgIH0nLAogICAgJ30nLApdCmhvb2sgPSBjaHIoMTApLmpvaW4oaG9va19saW5lcykgKyBjaHIoMTApCmlmICdpbmplY3RlZCBieSBDSTogc3RyaXAgLmltcG9ydCcgbm90IGluIHNyYzoKICAgIHAud3JpdGVfdGV4dChzcmMgKyBob29rKQogICAgcHJpbnQoJ2hvb2sgaW5qZWN0ZWQnKQplbHNlOgogICAgcHJpbnQoJ2hvb2sgYWxyZWFkeSBwcmVzZW50LCBza2lwcGVkJykK" | base64 -d | python3
 
       - name: Generate Android debug keystore
         env:
