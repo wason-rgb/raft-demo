@@ -26,9 +26,8 @@ def upload(file_path: str, api_key: str, build_name: str = "", build_desc: str =
         data = {
             "_api_key": api_key,
             "buildType": "1",          # 1=Android
-            "buildInstallType": "2",   # 2=密码安装（设空密码则免密）
-            "buildPassword": "",
-            "buildUpdateDescription": build_desc,
+            "buildInstallType": "1",   # 1=公开安装
+                        "buildUpdateDescription": build_desc,
         }
         if build_name:
             data["buildName"] = build_name
