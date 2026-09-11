@@ -20,10 +20,10 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Setup .NET 6.0 SDK
+      - name: Setup .NET 9.0 SDK
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '6.0.x'
+          dotnet-version: '9.0.x'
 
       - name: Install Android command-line tools
         env:
@@ -75,27 +75,27 @@ jobs:
           echo "=== NDK 装完 ==="
           ls $ANDROID_SDK_ROOT/ndk/26.1.10909125/source.properties 2>&1 | head -3
 
-      - name: Download Godot 4.2.2 Mono Editor
+      - name: Download Godot 4.7.2 Mono Editor
         run: |
           set -e
-          echo "=== 下 Godot 4.2.2 Mono Editor ==="
-          curl -fsSL --retry 3 https://github.com/godotengine/godot-builds/releases/download/4.2.2-stable/Godot_v4.2.2-stable_mono_linux_x86_64.zip -o godot-mono.zip
+          echo "=== 下 Godot 4.7.2 Mono Editor ==="
+          curl -fsSL --retry 3 https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_mono_linux_x86_64.zip -o godot-mono.zip
           unzip -q -o godot-mono.zip -d /opt
-          ls -la /opt/Godot_v4.2.2-stable_mono_linux_x86_64/ | head -5
-          ln -sf /opt/Godot_v4.2.2-stable_mono_linux_x86_64/Godot_v4.2.2-stable_mono_linux.x86_64 /usr/local/bin/godot-mono
-          chmod +x /opt/Godot_v4.2.2-stable_mono_linux_x86_64/Godot_v4.2.2-stable_mono_linux.x86_64
+          ls -la /opt/Godot_v4.7.2-stable_mono_linux_x86_64/ | head -5
+          ln -sf /opt/Godot_v4.7.2-stable_mono_linux_x86_64/Godot_v4.7.2-stable_mono_linux.x86_64 /usr/local/bin/godot-mono
+          chmod +x /opt/Godot_v4.7.2-stable_mono_linux_x86_64/Godot_v4.7.2-stable_mono_linux.x86_64
           godot-mono --version
           rm -f godot-mono.zip
 
       - name: Setup Godot Android Export Templates
         run: |
           set -e
-          echo "=== 下 Godot 4.2.2 mono export templates ==="
-          curl -fsSL --retry 3 --retry-delay 10 https://github.com/godotengine/godot-builds/releases/download/4.2.2-stable/Godot_v4.2.2-stable_mono_export_templates.tpz -o templates.tpz
-          mkdir -p ~/.local/share/godot/export_templates/4.2.2.stable.mono/
+          echo "=== 下 Godot 4.7.2 mono export templates ==="
+          curl -fsSL --retry 3 --retry-delay 10 https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_mono_export_templates.tpz -o templates.tpz
+          mkdir -p ~/.local/share/godot/export_templates/4.7.2.stable.mono/
           unzip -q templates.tpz -d /tmp/templates/
-          cp /tmp/templates/templates/android_* ~/.local/share/godot/export_templates/4.2.2.stable.mono/
-          ls -la ~/.local/share/godot/export_templates/4.2.2.stable.mono/
+          cp /tmp/templates/templates/android_* ~/.local/share/godot/export_templates/4.7.2.stable.mono/
+          ls -la ~/.local/share/godot/export_templates/4.7.2.stable.mono/
 
       - name: Install Android Build Template
         run: |
@@ -104,7 +104,7 @@ jobs:
           if [ ! -f android/build/build.gradle ]; then
             echo "=== 解压 android_source.zip 到 android/build/ (Godot 期望 res://android/build/build.gradle) ==="
             mkdir -p android/build
-            unzip -q ~/.local/share/godot/export_templates/4.2.2.stable.mono/android_source.zip -d android/build/
+            unzip -q ~/.local/share/godot/export_templates/4.7.2.stable.mono/android_source.zip -d android/build/
             echo "--- android/build/ 顶层 ---"
             ls -la android/build/ | head -15
             if [ -f android/build/build.gradle ]; then
@@ -118,10 +118,10 @@ jobs:
             echo "=== android/build/build.gradle 已存在，跳过 ==="
             ls -la android/build/ | head -15
           fi
-          # Godot 4.2 校验 res://android/.build_version 内容 = VERSION_FULL_CONFIG = "4.2.2.stable.mono"
-          # 注意：路径是 android/.build_version（无 build/），export_plugin.cpp:2881
+          # Godot 4.7 校验 res://android/.build_version 内容 = VERSION_FULL_CONFIG = "4.7.2.stable.mono"
+          # 注意：路径是 android/.build_version（无 build/），export_plugin.cpp:3160
           echo "=== 写 android/.build_version ==="
-          echo "4.2.2.stable.mono" > android/.build_version
+          echo "4.7.2.stable.mono" > android/.build_version
           cat android/.build_version
           ls -la android/ | head -10
           # 关键：删掉 android/build/res/ 下的 .import 元数据文件，Android 资源合并器拒绝它们
